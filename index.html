@@ -3,147 +3,165 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Регистрация</title>
+  <title>Лента (Firestore onSnapshot)</title>
   <style>
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
-      padding: 24px;
-    }
-    .card {
-      width: 100%;
-      max-width: 380px;
-      background: #fff;
-      border-radius: 14px;
-      padding: 22px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-    }
-    .card h1 {
-      margin: 0 0 14px;
-      font-size: 22px;
-    }
-    form {
-      display: grid;
-      gap: 12px;
-    }
-    label {
-      display: grid;
-      gap: 6px;
-      font-size: 14px;
-      color: #111827;
-    }
-    input {
-      width: 100%;
-      padding: 10px 12px;
-      font-size: 15px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      outline: none;
-      transition: 0.2s;
-    }
-    input:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
-    }
-    button {
-      margin-top: 6px;
-      padding: 10px 12px;
-      font-size: 15px;
-      border: 0;
-      border-radius: 10px;
-      background: #2563eb;
-      color: white;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    button:hover { filter: brightness(0.95); }
-
-    .hint {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #6b7280;
-    }
-    #status {
-      margin: 6px 0 0;
-      font-size: 12px;
-      color: #374151;
-      min-height: 16px;
-    }
+    body { font-family: Inter, Arial, sans-serif; background:#f4f7f6; margin:0; display:flex; flex-direction:column; align-items:center; padding:20px; }
+    .container { width:100%; max-width:520px; background:#fff; padding:22px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,.08); }
+    h3 { margin:0 0 12px; }
+    input { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; font-size:14px; }
+    button { width:100%; padding:12px; border:0; border-radius:8px; background:#007bff; color:#fff; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .hint { margin-top:10px; font-size:12px; color:#6b7280; min-height:16px; }
+    #feed { width:100%; max-width:520px; margin-top:14px; }
+    .post { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin:10px 0; }
+    .meta { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .time { font-size:12px; color:#999; }
+    .like-btn { margin-top:10px; background:#e2e6ea; color:#111; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; width:auto; }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h1>Регистрация</h1>
-    
-    <form id="regForm">
-      <label>
-        Имя
-        <input type="text" name="name" placeholder="Введите имя" required />
-      </label>
+  <div class="container">
+    <h3>Панель управления данными</h3>
 
-      <label>
-        Email
-        <input type="email" name="email" placeholder="example@mail.com" required />
-      </label>
+    <input type="text" id="name" placeholder="Имя профиля" />
+    <input type="email" id="email" placeholder="Рабочий Email" />
 
-      <button type="submit">Зарегистрироваться</button>
-      <p id="status"></p>
-    </form>
-
-    <div class="hint">Заполните поля и нажмите кнопку.</div>
+    <button id="mainBtn">Опубликовать в облако</button>
+    <div class="hint" id="status"></div>
   </div>
 
+  <div id="feed"></div>
+
   <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot,
+      serverTimestamp,
+      doc,
+      updateDoc,
+      increment
+    } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
-    authDomain: "qwerty-889bc.firebaseapp.com",
-    projectId: "qwerty-889bc",
-    storageBucket: "qwerty-889bc.firebasestorage.app",
-    messagingSenderId: "899241468202",
-    appId: "1:899241468202:web:f2f0cf7c0fa36414427e53",
-    measurementId: "G-25RLR6EB83"
-  };
+    // 1) ВСТАВЬ СВОЙ firebaseConfig
+    const firebaseConfig = {
+      apiKey: "PASTE_HERE",
+      authDomain: "PASTE_HERE",
+      projectId: "PASTE_HERE",
+      storageBucket: "PASTE_HERE",
+      messagingSenderId: "PASTE_HERE",
+      appId: "PASTE_HERE"
+    };
 
-  const app = initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  // ПИШЕМ В aleoy (если хочешь в default — убери "aleoy")
-  const db = getFirestore(app, "aleoy");
+    const colRef = collection(db, "requests");
+    const feed = document.getElementById("feed");
+    const statusEl = document.getElementById("status");
 
-  const form = document.getElementById("regForm");
-  const statusEl = document.getElementById("status");
+    const nameEl = document.getElementById("name");
+    const emailEl = document.getElementById("email");
+    const btn = document.getElementById("mainBtn");
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    statusEl.textContent = "Отправка...";
+    // 2) Публикация (addDoc)
+    btn.addEventListener("click", async () => {
+      const name = nameEl.value.trim();
+      const email = emailEl.value.trim().toLowerCase();
 
-    const name = form.elements.name.value.trim();
-    const email = form.elements.email.value.trim().toLowerCase();
+      if (!name || !email) {
+        statusEl.textContent = "Заполни имя и email.";
+        return;
+      }
 
-    try {
-      const docRef = await addDoc(collection(db, "registrations"), {
-        name,
-        email,
-        createdAt: serverTimestamp()
+      btn.disabled = true;
+      statusEl.textContent = "Отправка...";
+
+      try {
+        await addDoc(colRef, {
+          name,
+          email,
+          likes: 0,
+          timestamp: serverTimestamp()
+        });
+
+        nameEl.value = "";
+        emailEl.value = "";
+        statusEl.textContent = "Сохранено ✅";
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Ошибка: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // 3) Реактивная лента: сортировка по timestamp DESC
+    const q = query(colRef, orderBy("timestamp", "desc"));
+
+    onSnapshot(q, (snapshot) => {
+      feed.innerHTML = "";
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+
+        const card = document.createElement("div");
+        card.className = "post";
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+
+        const left = document.createElement("div");
+        const nameB = document.createElement("b");
+        nameB.textContent = data.name ?? "(без имени)";
+        const emailP = document.createElement("div");
+        emailP.textContent = data.email ?? "(без email)";
+        left.appendChild(nameB);
+        left.appendChild(document.createElement("br"));
+        left.appendChild(emailP);
+
+        const time = document.createElement("div");
+        time.className = "time";
+        // serverTimestamp может прийти чуть позже — поэтому проверка
+        time.textContent = data.timestamp?.toDate
+          ? data.timestamp.toDate().toLocaleString()
+          : "…";
+
+        meta.appendChild(left);
+        meta.appendChild(time);
+
+        const likeBtn = document.createElement("button");
+        likeBtn.className = "like-btn";
+        likeBtn.dataset.id = docSnap.id;
+        likeBtn.textContent = `👍 ${data.likes ?? 0}`;
+
+        card.appendChild(meta);
+        card.appendChild(likeBtn);
+        feed.appendChild(card);
       });
+    });
 
-      console.log("Saved:", docRef.id);
-      statusEl.textContent = "Сохранено! id: " + docRef.id;
-      form.reset();
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "Ошибка: " + err.message;
-    }
-  });
-</script>
+    // 4) Лайки (атомарно): updateDoc + increment
+    feed.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".like-btn");
+      if (!btn) return;
+
+      const id = btn.dataset.id;
+      const docRef = doc(db, "requests", id);
+
+      try {
+        await updateDoc(docRef, { likes: increment(1) });
+      } catch (e) {
+        console.error(e);
+        alert("Ошибка: данные отклонены сервером (проверь Rules).");
+      }
+    });
+  </script>
+
 </body>
 </html>
