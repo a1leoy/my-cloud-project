@@ -101,47 +101,49 @@
   </div>
 
   <script type="module">
-    alert("JS подключён!");
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
-      authDomain: "qwerty-889bc.firebaseapp.com",
-      projectId: "qwerty-889bc",
-      storageBucket: "qwerty-889bc.firebasestorage.app",
-      messagingSenderId: "899241468202",
-      appId: "1:899241468202:web:f2f0cf7c0fa36414427e53",
-      measurementId: "G-25RLR6EB83"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
+    authDomain: "qwerty-889bc.firebaseapp.com",
+    projectId: "qwerty-889bc",
+    storageBucket: "qwerty-889bc.firebasestorage.app",
+    messagingSenderId: "899241468202",
+    appId: "1:899241468202:web:f2f0cf7c0fa36414427e53",
+    measurementId: "G-25RLR6EB83"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
 
-    const form = document.getElementById("regForm");
-    const statusEl = document.getElementById("status");
+  // ПИШЕМ В aleoy (если хочешь в default — убери "aleoy")
+  const db = getFirestore(app, "aleoy");
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      statusEl.textContent = "Отправка...";
+  const form = document.getElementById("regForm");
+  const statusEl = document.getElementById("status");
 
-      const name = form.elements.name.value.trim();
-      const email = form.elements.email.value.trim().toLowerCase();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    statusEl.textContent = "Отправка...";
 
-      try {
-        await addDoc(collection(db, "registrations"), {
-          name,
-          email,
-          createdAt: serverTimestamp()
-        });
+    const name = form.elements.name.value.trim();
+    const email = form.elements.email.value.trim().toLowerCase();
 
-        form.reset();
-        statusEl.textContent = "Готово! Данные сохранены.";
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "Ошибка при сохранении. Проверь Firestore rules.";
-      }
-    });
-  </script>
+    try {
+      const docRef = await addDoc(collection(db, "registrations"), {
+        name,
+        email,
+        createdAt: serverTimestamp()
+      });
+
+      console.log("Saved:", docRef.id);
+      statusEl.textContent = "Сохранено! id: " + docRef.id;
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "Ошибка: " + err.message;
+    }
+  });
+</script>
 </body>
 </html>
