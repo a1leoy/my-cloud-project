@@ -48,15 +48,15 @@
       increment
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-    // 1) ВСТАВЬ СВОЙ firebaseConfig
     const firebaseConfig = {
-      apiKey: "PASTE_HERE",
-      authDomain: "PASTE_HERE",
-      projectId: "PASTE_HERE",
-      storageBucket: "PASTE_HERE",
-      messagingSenderId: "PASTE_HERE",
-      appId: "PASTE_HERE"
-    };
+  apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
+  authDomain: "qwerty-889bc.firebaseapp.com",
+  projectId: "qwerty-889bc",
+  storageBucket: "qwerty-889bc.firebasestorage.app",
+  messagingSenderId: "899241468202",
+  appId: "1:899241468202:web:f2f0cf7c0fa36414427e53",
+  measurementId: "G-25RLR6EB83"
+};
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -69,7 +69,6 @@
     const emailEl = document.getElementById("email");
     const btn = document.getElementById("mainBtn");
 
-    // 2) Публикация (addDoc)
     btn.addEventListener("click", async () => {
       const name = nameEl.value.trim();
       const email = emailEl.value.trim().toLowerCase();
@@ -101,7 +100,6 @@
       }
     });
 
-    // 3) Реактивная лента: сортировка по timestamp DESC
     const q = query(colRef, orderBy("timestamp", "desc"));
 
     onSnapshot(q, (snapshot) => {
@@ -127,7 +125,6 @@
 
         const time = document.createElement("div");
         time.className = "time";
-        // serverTimestamp может прийти чуть позже — поэтому проверка
         time.textContent = data.timestamp?.toDate
           ? data.timestamp.toDate().toLocaleString()
           : "…";
@@ -145,8 +142,6 @@
         feed.appendChild(card);
       });
     });
-
-    // 4) Лайки (атомарно): updateDoc + increment
     feed.addEventListener("click", async (e) => {
       const btn = e.target.closest(".like-btn");
       if (!btn) return;
@@ -162,6 +157,5 @@
       }
     });
   </script>
-
 </body>
 </html>
