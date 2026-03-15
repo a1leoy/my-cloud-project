@@ -3,67 +3,106 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Лента (Firestore onSnapshot)</title>
+  <title>DM (Firebase)</title>
   <style>
-    body { font-family: Inter, Arial, sans-serif; background:#f4f7f6; margin:0; display:flex; flex-direction:column; align-items:center; padding:20px; }
-    .container { width:100%; max-width:520px; background:#fff; padding:22px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,.08); }
-    h3 { margin:0 0 12px; }
-    input { width: 320px; max-width: 100%; padding: 12px; margin: 8px auto; display: block; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;}
-    button { width: 320px; max-width: 100%; padding: 12px; margin: 10px auto 0; display: block; border: 0; border-radius: 8px; background: #007bff; color: #fff; font-weight: 600; cursor: pointer;}
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; display:grid; place-items:center; }
+    .wrap { width:100%; max-width:980px; display:grid; gap:14px; }
+    .card { background:#fff; border-radius:14px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.10); }
+    h2 { margin:0 0 10px; font-size:18px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:320px; max-width:100%; }
+    input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
+    button { padding:10px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
     button:disabled { opacity:.6; cursor:not-allowed; }
-    .hint { margin-top:10px; font-size:12px; color:#6b7280; min-height:16px; }
-    #feed { width:100%; max-width:520px; margin-top:14px; }
-    .post { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin:10px 0; }
-    .meta { display:flex; justify-content:space-between; gap:10px; align-items:center; }
-    .time { font-size:12px; color:#999; }
-    .id { font-size:11px; color:#6b7280; margin-top:6px; word-break: break-all; }
-    .actions { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
-    .like-btn, .dislike-btn {
-      background:#e2e6ea; color:#111; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; width:auto;
-    }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
-    .conn { font-size:12px; color:#6b7280; }
-    .small { font-size:12px; color:#6b7280; margin:8px 0 0; }
+    .muted { color:#6b7280; font-size:12px; min-height:16px; }
+    .grid { display:grid; grid-template-columns: 320px 1fr; gap:14px; }
+    .list { display:grid; gap:8px; }
+    .item { padding:10px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; }
+    .item:hover { background:#f9fafb; }
+    .item b { display:block; }
+    .chat { display:grid; gap:10px; }
+    .msgs { height:360px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
+    .msg { margin:6px 0; padding:8px 10px; border-radius:12px; max-width:80%; }
+    .me { background:#dbeafe; margin-left:auto; }
+    .them { background:#f3f4f6; margin-right:auto; }
+    .msg small { display:block; color:#6b7280; margin-top:4px; font-size:11px; }
+    .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .badge { font-size:12px; color:#6b7280; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
+  <div class="wrap">
 
-  <div class="container">
-    <div class="topbar">
-      <h3>Панель управления данными</h3>
-      <div class="conn" id="connStatus">Подключение…</div>
+    <div class="card">
+      <div class="topline">
+        <h2>Аккаунт</h2>
+        <div class="badge" id="conn">—</div>
+      </div>
+
+      <div class="row">
+        <input id="name" placeholder="Имя (для профиля)" />
+        <input id="email" placeholder="Email" />
+        <input id="password" type="password" placeholder="Пароль (мин. 6)" />
+        <button id="btnRegister">Регистрация</button>
+        <button id="btnLogin">Вход</button>
+        <button id="btnLogout" disabled>Выход</button>
+      </div>
+      <div class="muted" id="authStatus"></div>
     </div>
 
-    <input type="text" id="name" placeholder="Имя профиля" />
-    <input type="email" id="email" placeholder="Рабочий Email" />
-    <input type="password" id="password" placeholder="Пароль (мин. 6 символов)" />
+    <div class="card" id="dmCard" style="display:none;">
+      <div class="topline">
+        <h2>Личные сообщения (DM)</h2>
+        <div class="badge" id="meBadge">—</div>
+      </div>
 
-    <button id="mainBtn">Зарегистрироваться и опубликовать</button>
-    <div class="hint" id="status"></div>
+      <div class="grid">
+        <!-- LEFT -->
+        <div>
+          <div class="row">
+            <input id="peerEmail" placeholder="Email собеседника" />
+            <button id="btnOpen">Открыть чат</button>
+          </div>
+          <div class="muted" id="dmStatus"></div>
 
-  <div id="feed"></div>
+          <h2 style="margin-top:14px;">Диалоги</h2>
+          <div class="list" id="convs"></div>
+        </div>
+
+        <div class="chat">
+          <div class="topline">
+            <div>
+              <b id="chatTitle">Чат не выбран</b>
+              <div class="muted" id="chatSub"></div>
+            </div>
+          </div>
+
+          <div class="msgs" id="msgs"></div>
+
+          <div class="row">
+            <input id="text" placeholder="Сообщение..." style="flex:1; width:auto; min-width:240px;" />
+            <button id="btnSend" disabled>Отправить</button>
+          </div>
+          <div class="muted">Тест: открой в двух браузерах — сообщения/обновления появятся сразу.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import {
-      getFirestore,
-      collection,
-      addDoc,
-      query,
-      orderBy,
-      onSnapshot,
-      serverTimestamp,
-      doc,
-      updateDoc,
-      increment,
-      deleteDoc
+      getFirestore, doc, setDoc, getDoc, updateDoc,
+      collection, addDoc, query, where, orderBy, onSnapshot,
+      serverTimestamp, limit
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
     import {
-      getAuth,
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword,
-      updateProfile
+      getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+      signInWithEmailAndPassword, signOut, updateProfile
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -77,159 +116,288 @@
     };
 
     const app = initializeApp(firebaseConfig);
-
     const db = getFirestore(app, "aleoy");
-
     const auth = getAuth(app);
 
-    const colRef = collection(db, "requests");
+    const el = (id) => document.getElementById(id);
+    const authStatus = el("authStatus");
+    const dmStatus = el("dmStatus");
+    const dmCard = el("dmCard");
+    const convsEl = el("convs");
+    const msgsEl = el("msgs");
+    const chatTitle = el("chatTitle");
+    const chatSub = el("chatSub");
+    const meBadge = el("meBadge");
+    const conn = el("conn");
 
-    const feed = document.getElementById("feed");
-    const statusEl = document.getElementById("status");
-    const connEl = document.getElementById("connStatus");
+    const btnRegister = el("btnRegister");
+    const btnLogin = el("btnLogin");
+    const btnLogout = el("btnLogout");
+    const btnOpen = el("btnOpen");
+    const btnSend = el("btnSend");
 
-    const nameEl = document.getElementById("name");
-    const emailEl = document.getElementById("email");
-    const passEl = document.getElementById("password");
-    const mainBtn = document.getElementById("mainBtn");
+    const nameEl = el("name");
+    const emailEl = el("email");
+    const passEl = el("password");
+    const peerEmailEl = el("peerEmail");
+    const textEl = el("text");
 
-    const setStatus = (msg) => { statusEl.textContent = msg || ""; };
+    let me = null;
+    let activeConvId = null;
+    let activePeerUid = null;
+    let unsubConvs = null;
+    let unsubMsgs = null;
 
-    mainBtn.addEventListener("click", async () => {
+    const uidPairId = (a, b) => [a, b].sort().join("_");
+
+    function setText(node, text) { node.textContent = text || ""; }
+
+    btnRegister.onclick = async () => {
       const name = nameEl.value.trim();
       const email = emailEl.value.trim().toLowerCase();
-      const password = passEl.value;
+      const pass = passEl.value;
 
-      if (name.length < 3) return setStatus("Имя должно быть минимум 3 символа.");
-      if (!email.includes("@")) return setStatus("Проверь email.");
-      if (!password || password.length < 6) return setStatus("Пароль минимум 6 символов.");
+      if (name.length < 2) return setText(authStatus, "Имя слишком короткое.");
+      if (!email.includes("@")) return setText(authStatus, "Проверь email.");
+      if (!pass || pass.length < 6) return setText(authStatus, "Пароль минимум 6 символов.");
 
-      mainBtn.disabled = true;
-      setStatus("Регистрация/вход...");
-
+      setText(authStatus, "Регистрация...");
       try {
-        try {
-          const cred = await createUserWithEmailAndPassword(auth, email, password);
-          await updateProfile(cred.user, { displayName: name });
-        } catch (e) {
-          if (e.code === "auth/email-already-in-use") {
-            await signInWithEmailAndPassword(auth, email, password);
-          } else {
-            throw e;
-          }
-        }
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await updateProfile(cred.user, { displayName: name });
 
-        setStatus("Публикация в Firestore...");
-
-        const uid = auth.currentUser?.uid ?? null;
-
-        const docRef = await addDoc(colRef, {
-          name,
+        await setDoc(doc(db, "users", cred.user.uid), {
           email,
-          uid,
-          likes: 0,
-          dislikes: 0,
-          timestamp: serverTimestamp()
-        });
+          name,
+          createdAt: serverTimestamp()
+        }, { merge: true });
 
-        nameEl.value = "";
-        emailEl.value = "";
-        passEl.value = "";
-        setStatus("Сохранено ✅ id: " + docRef.id);
+        setText(authStatus, "Готово ✅");
       } catch (e) {
         console.error(e);
-        setStatus("Ошибка: " + (e.message || e.code));
-      } finally {
-        mainBtn.disabled = false;
+        setText(authStatus, "Ошибка: " + (e.code || e.message));
       }
-    });
+    };
 
-    const q = query(colRef, orderBy("timestamp", "desc"));
-
-    onSnapshot(
-      q,
-      { includeMetadataChanges: true },
-      (snapshot) => {
-        connEl.textContent = snapshot.metadata.fromCache ? "Оффлайн/кэш" : "Онлайн (live)";
-        feed.innerHTML = "";
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-
-          const card = document.createElement("div");
-          card.className = "post";
-
-          const meta = document.createElement("div");
-          meta.className = "meta";
-
-          const left = document.createElement("div");
-          left.innerHTML = `<b>${data.name ?? "(без имени)"}</b><br>${data.email ?? "(без email)"}`;
-
-          const time = document.createElement("div");
-          time.className = "time";
-          time.textContent = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleString() : "…";
-
-          meta.appendChild(left);
-          meta.appendChild(time);
-
-          const idLine = document.createElement("div");
-          idLine.className = "id";
-          idLine.textContent = "ID: " + docSnap.id;
-
-          const actions = document.createElement("div");
-          actions.className = "actions";
-
-          const likeBtn = document.createElement("button");
-          likeBtn.className = "like-btn";
-          likeBtn.dataset.id = docSnap.id;
-          likeBtn.textContent = `👍 ${data.likes ?? 0}`;
-
-          const dislikeBtn = document.createElement("button");
-          dislikeBtn.className = "dislike-btn";
-          dislikeBtn.dataset.id = docSnap.id;
-          dislikeBtn.textContent = `👎 ${data.dislikes ?? 0}`;
-
-          actions.appendChild(likeBtn);
-          actions.appendChild(dislikeBtn);
-
-          card.appendChild(meta);
-          card.appendChild(idLine);
-          card.appendChild(actions);
-
-          feed.appendChild(card);
-        });
-      },
-      (error) => {
-        console.error(error);
-        setStatus("Ошибка подписки (onSnapshot): " + error.message);
-      }
-    );
-
-    feed.addEventListener("click", async (e) => {
-      const like = e.target.closest(".like-btn");
-      const dislike = e.target.closest(".dislike-btn");
-      if (!like && !dislike) return;
-
-      const id = (like || dislike).dataset.id;
-      const ref = doc(db, "requests", id);
-
+    btnLogin.onclick = async () => {
+      const email = emailEl.value.trim().toLowerCase();
+      const pass = passEl.value;
+      setText(authStatus, "Вход...");
       try {
-        if (like) {
-          await updateDoc(ref, { likes: increment(1) });
-        } else {
-          await updateDoc(ref, { dislikes: increment(1) });
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Отклонено сервером (Rules): " + err.message);
+        await signInWithEmailAndPassword(auth, email, pass);
+        setText(authStatus, "Вошли ✅");
+      } catch (e) {
+        console.error(e);
+        setText(authStatus, "Ошибка: " + (e.code || e.message));
       }
+    };
+
+    btnLogout.onclick = async () => {
+      await signOut(auth);
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      me = user || null;
+
+      if (unsubConvs) unsubConvs();
+      if (unsubMsgs) unsubMsgs();
+      unsubConvs = null; unsubMsgs = null;
+      activeConvId = null; activePeerUid = null;
+      msgsEl.innerHTML = "";
+      convsEl.innerHTML = "";
+      btnSend.disabled = true;
+
+      if (!me) {
+        dmCard.style.display = "none";
+        btnLogout.disabled = true;
+        setText(meBadge, "—");
+        setText(conn, "Вы не вошли");
+        setText(chatTitle, "Чат не выбран");
+        setText(chatSub, "");
+        return;
+      }
+
+      dmCard.style.display = "";
+      btnLogout.disabled = false;
+      setText(meBadge, `Вы: ${me.email}`);
+      setText(conn, "Онлайн");
+
+      await setDoc(doc(db, "users", me.uid), {
+        email: me.email,
+        name: me.displayName || "",
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      const convQ = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", me.uid),
+        orderBy("updatedAt", "desc"),
+        limit(50)
+      );
+
+      unsubConvs = onSnapshot(convQ, async (snap) => {
+        convsEl.innerHTML = "";
+        setText(dmStatus, "");
+
+        if (snap.empty) {
+          convsEl.innerHTML = `<div class="muted">Диалогов пока нет</div>`;
+          return;
+        }
+
+        for (const d of snap.docs) {
+          const data = d.data();
+          const otherUid = (data.participants || []).find(x => x !== me.uid);
+          let label = otherUid || "unknown";
+
+          if (otherUid) {
+            const uDoc = await getDoc(doc(db, "users", otherUid));
+            if (uDoc.exists()) {
+              const u = uDoc.data();
+              label = `${u.name || "(без имени)"} — ${u.email || otherUid}`;
+            }
+          }
+
+          const div = document.createElement("div");
+          div.className = "item";
+          div.innerHTML = `<b>${label}</b><div class="muted">${data.lastMessage || ""}</div>`;
+          div.onclick = () => openConversationById(d.id);
+          convsEl.appendChild(div);
+        }
+      });
     });
 
-    window.tryDelete = async (id) => deleteDoc(doc(db, "requests", id));
-    window.tryEdit = async (id) => updateDoc(doc(db, "requests", id), { name: "HACKED" });
+    btnOpen.onclick = async () => {
+      if (!me) return;
 
-    console.log("Ready. Tests: tryDelete('ID'), tryEdit('ID')");
+      const email = peerEmailEl.value.trim().toLowerCase();
+      if (!email.includes("@")) return setText(dmStatus, "Введи email собеседника.");
+
+      setText(dmStatus, "Поиск пользователя...");
+      try {
+        const uQ = query(collection(db, "users"), where("email", "==", email), limit(1));
+
+        let resolved = false;
+        const unsub = onSnapshot(uQ, async (snap) => {
+          if (resolved) return;
+          resolved = true;
+          unsub();
+
+          if (snap.empty) return setText(dmStatus, "Пользователь не найден (он должен зарегистрироваться).");
+
+          const peerDoc = snap.docs[0];
+          const peerUid = peerDoc.id;
+          if (peerUid === me.uid) return setText(dmStatus, "Нельзя писать самому себе.");
+
+          const convId = uidPairId(me.uid, peerUid);
+          const convRef = doc(db, "conversations", convId);
+
+          const convSnap = await getDoc(convRef);
+          if (!convSnap.exists()) {
+            await setDoc(convRef, {
+              participants: [me.uid, peerUid],
+              updatedAt: serverTimestamp(),
+              lastMessage: ""
+            });
+          }
+
+          setText(dmStatus, "Чат открыт ✅");
+          await openConversationById(convId);
+        });
+
+      } catch (e) {
+        console.error(e);
+        setText(dmStatus, "Ошибка: " + (e.code || e.message));
+      }
+    };
+
+    async function openConversationById(convId) {
+      if (!me) return;
+
+      activeConvId = convId;
+      setText(chatTitle, "Чат: " + convId);
+      setText(chatSub, "");
+      msgsEl.innerHTML = "";
+      btnSend.disabled = false;
+
+      if (unsubMsgs) unsubMsgs();
+
+      const convRef = doc(db, "conversations", convId);
+      const convSnap = await getDoc(convRef);
+      if (!convSnap.exists()) {
+        setText(chatSub, "Чат не найден");
+        btnSend.disabled = true;
+        return;
+      }
+
+      const conv = convSnap.data();
+      const peerUid = (conv.participants || []).find(x => x !== me.uid) || null;
+      activePeerUid = peerUid;
+
+      if (peerUid) {
+        const u = await getDoc(doc(db, "users", peerUid));
+        if (u.exists()) {
+          const ud = u.data();
+          setText(chatTitle, ud.name ? `Чат с: ${ud.name}` : "Чат");
+          setText(chatSub, ud.email || peerUid);
+        }
+      }
+
+      const msgQ = query(
+        collection(db, "conversations", convId, "messages"),
+        orderBy("createdAt", "asc"),
+        limit(200)
+      );
+
+      unsubMsgs = onSnapshot(msgQ, (snap) => {
+        msgsEl.innerHTML = "";
+        snap.forEach((m) => {
+          const data = m.data();
+          const div = document.createElement("div");
+          div.className = "msg " + (data.from === me.uid ? "me" : "them");
+          div.textContent = data.text || "";
+          const t = document.createElement("small");
+          t.textContent = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "…";
+          div.appendChild(t);
+          msgsEl.appendChild(div);
+        });
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      });
+    }
+
+    btnSend.onclick = async () => {
+      if (!me || !activeConvId || !activePeerUid) return;
+
+      const text = textEl.value.trim();
+      if (!text) return;
+
+      btnSend.disabled = true;
+      try {
+        await addDoc(collection(db, "conversations", activeConvId, "messages"), {
+          from: me.uid,
+          to: activePeerUid,
+          text,
+          createdAt: serverTimestamp()
+        });
+
+        await updateDoc(doc(db, "conversations", activeConvId), {
+          updatedAt: serverTimestamp(),
+          lastMessage: text
+        });
+
+        textEl.value = "";
+      } catch (e) {
+        console.error(e);
+        alert("Ошибка отправки (Rules?): " + (e.code || e.message));
+      } finally {
+        btnSend.disabled = false;
+      }
+    };
+
+    window.tryDeleteConversation = async (convId) => {
+      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js");
+      return deleteDoc(doc(db, "conversations", convId));
+    };
+    window.tryEditConversation = async (convId) => updateDoc(doc(db, "conversations", convId), { lastMessage: "HACKED" });
   </script>
-
 </body>
 </html>
