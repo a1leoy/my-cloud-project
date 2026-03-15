@@ -276,21 +276,62 @@
 
     userSearch.addEventListener("input", () => {
     });
-
     async function openChatWithUser(peerUid, peerName, peerEmail) {
       if (!me) return;
+      showChat();
+      btnSend.disabled = true;
+      msgsEl.innerHTML = "";
+      textEl.value = "";
+      setText(chatTitle, peerName ? `Чат с: ${peerName}` : "Чат");
+      setText(chatSub, peerEmail || peerUid);
+      try {
+        const convId = uidPairId(me.uid, peerUid);
+        const convRef = doc(db, "conversations", convId);
+        const convSnap = await getDoc(convRef);
+        if (!convSnap.exists()) {
+          await setDoc(convRef, {
+            participants: [me.uid, peerUid],
+            updatedAt: serverTimestamp(),
+            lastMessage: ""
+          });
+        }
 
-      const convId = uidPairId(me.uid, peerUid);
-      const convRef = doc(db, "conversations", convId);
+    activeConvId = convId;
+    activePeerUid = peerUid;
+    btnSend.disabled = false;
 
-      const convSnap = await getDoc(convRef);
-      if (!convSnap.exists()) {
-        await setDoc(convRef, {
-          participants: [me.uid, peerUid],
-          updatedAt: serverTimestamp(),
-          lastMessage: ""
-        });
-      }
+    if (unsubMsgs) unsubMsgs();
+
+    const msgQ = query(
+      collection(db, "conversations", convId, "messages"),
+      orderBy("createdAt", "asc"),
+      limit(300)
+    );
+
+    unsubMsgs = onSnapshot(msgQ, (snap) => {
+      msgsEl.innerHTML = "";
+      snap.forEach((m) => {
+        const data = m.data();
+        const div = document.createElement("div");
+        div.className = "msg " + (data.from === me.uid ? "me" : "them");
+        div.textContent = data.text || "";
+        const t = document.createElement("small");
+        t.textContent = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "…";
+        div.appendChild(t);
+        msgsEl.appendChild(div);
+      });
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }, (err) => {
+      console.error(err);
+      alert("Ошибка чтения сообщений: " + err.message);
+    });
+
+  } catch (e) {
+    console.error(e);
+    alert("Чат не открылся: " + (e.code || e.message));
+    showUsers();
+  }
+}
 
       activeConvId = convId;
       activePeerUid = peerUid;
