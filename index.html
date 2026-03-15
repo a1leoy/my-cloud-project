@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Лента</title>
+  <title>Лента (Firestore onSnapshot)</title>
   <style>
     body { font-family: Inter, Arial, sans-serif; background:#f4f7f6; margin:0; display:flex; flex-direction:column; align-items:center; padding:20px; }
     .container { width:100%; max-width:520px; background:#fff; padding:22px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,.08); }
@@ -16,19 +16,36 @@
     .post { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin:10px 0; }
     .meta { display:flex; justify-content:space-between; gap:10px; align-items:center; }
     .time { font-size:12px; color:#999; }
+    .id { font-size:11px; color:#6b7280; margin-top:6px; word-break: break-all; }
     .like-btn { margin-top:10px; background:#e2e6ea; color:#111; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; width:auto; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+    .conn { font-size:12px; color:#6b7280; }
+    .small { font-size:12px; color:#6b7280; margin:8px 0 0; }
+    .row { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    .chip { font-size:12px; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#1f2937; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h3>Панель управления данными</h3>
+    <div class="topbar">
+      <h3>Панель управления данными</h3>
+      <div class="conn" id="connStatus">Подключение…</div>
+    </div>
 
     <input type="text" id="name" placeholder="Имя профиля" />
     <input type="email" id="email" placeholder="Рабочий Email" />
 
     <button id="mainBtn">Опубликовать в облако</button>
     <div class="hint" id="status"></div>
+
+    <div class="small">
+      Тесты:
+      <div class="row">
+        <span class="chip">1) Открой сайт в 2 браузерах → лайк синхронно</span>
+        <span class="chip">2) F12 Console: tryDelete('ID') / tryEdit('ID')</span>
+      </div>
+    </div>
   </div>
 
   <div id="feed"></div>
@@ -45,7 +62,8 @@
       serverTimestamp,
       doc,
       updateDoc,
-      increment
+      increment,
+      deleteDoc
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -62,27 +80,33 @@
     const db = getFirestore(app);
 
     const colRef = collection(db, "requests");
+
     const feed = document.getElementById("feed");
     const statusEl = document.getElementById("status");
+    const connEl = document.getElementById("connStatus");
 
     const nameEl = document.getElementById("name");
     const emailEl = document.getElementById("email");
-    const btn = document.getElementById("mainBtn");
+    const mainBtn = document.getElementById("mainBtn");
 
-    btn.addEventListener("click", async () => {
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
+    }
+
+    mainBtn.addEventListener("click", async () => {
       const name = nameEl.value.trim();
       const email = emailEl.value.trim().toLowerCase();
 
       if (!name || !email) {
-        statusEl.textContent = "Заполни имя и email.";
+        setStatus("Заполни имя и email.");
         return;
       }
 
-      btn.disabled = true;
-      statusEl.textContent = "Отправка...";
+      mainBtn.disabled = true;
+      setStatus("Отправка...");
 
       try {
-        await addDoc(colRef, {
+        const docRef = await addDoc(colRef, {
           name,
           email,
           likes: 0,
@@ -91,57 +115,75 @@
 
         nameEl.value = "";
         emailEl.value = "";
-        statusEl.textContent = "Сохранено ✅";
+        setStatus("Сохранено ✅ id: " + docRef.id);
       } catch (e) {
         console.error(e);
-        statusEl.textContent = "Ошибка: " + e.message;
+        setStatus("Ошибка: " + e.message);
       } finally {
-        btn.disabled = false;
+        mainBtn.disabled = false;
       }
     });
 
     const q = query(colRef, orderBy("timestamp", "desc"));
 
-    onSnapshot(q, (snapshot) => {
-      feed.innerHTML = "";
+    onSnapshot(
+      q,
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        connEl.textContent = snapshot.metadata.fromCache
+          ? "Оффлайн/кэш (fromCache)"
+          : "Онлайн (live)";
 
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
+        feed.innerHTML = "";
 
-        const card = document.createElement("div");
-        card.className = "post";
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
 
-        const meta = document.createElement("div");
-        meta.className = "meta";
+          const card = document.createElement("div");
+          card.className = "post";
 
-        const left = document.createElement("div");
-        const nameB = document.createElement("b");
-        nameB.textContent = data.name ?? "(без имени)";
-        const emailP = document.createElement("div");
-        emailP.textContent = data.email ?? "(без email)";
-        left.appendChild(nameB);
-        left.appendChild(document.createElement("br"));
-        left.appendChild(emailP);
+          const meta = document.createElement("div");
+          meta.className = "meta";
 
-        const time = document.createElement("div");
-        time.className = "time";
-        time.textContent = data.timestamp?.toDate
-          ? data.timestamp.toDate().toLocaleString()
-          : "…";
+          const left = document.createElement("div");
+          const nameB = document.createElement("b");
+          nameB.textContent = data.name ?? "(без имени)";
+          const emailP = document.createElement("div");
+          emailP.textContent = data.email ?? "(без email)";
+          left.appendChild(nameB);
+          left.appendChild(document.createElement("br"));
+          left.appendChild(emailP);
 
-        meta.appendChild(left);
-        meta.appendChild(time);
+          const time = document.createElement("div");
+          time.className = "time";
+          time.textContent = data.timestamp?.toDate
+            ? data.timestamp.toDate().toLocaleString()
+            : "…";
 
-        const likeBtn = document.createElement("button");
-        likeBtn.className = "like-btn";
-        likeBtn.dataset.id = docSnap.id;
-        likeBtn.textContent = `👍 ${data.likes ?? 0}`;
+          meta.appendChild(left);
+          meta.appendChild(time);
 
-        card.appendChild(meta);
-        card.appendChild(likeBtn);
-        feed.appendChild(card);
-      });
-    });
+          const idLine = document.createElement("div");
+          idLine.className = "id";
+          idLine.textContent = "ID: " + docSnap.id;
+
+          const likeBtn = document.createElement("button");
+          likeBtn.className = "like-btn";
+          likeBtn.dataset.id = docSnap.id;
+          likeBtn.textContent = `👍 ${data.likes ?? 0}`;
+
+          card.appendChild(meta);
+          card.appendChild(idLine);
+          card.appendChild(likeBtn);
+          feed.appendChild(card);
+        });
+      },
+      (error) => {
+        console.error(error);
+        setStatus("Ошибка подписки (onSnapshot): " + error.message);
+      }
+    );
+
     feed.addEventListener("click", async (e) => {
       const btn = e.target.closest(".like-btn");
       if (!btn) return;
@@ -153,9 +195,22 @@
         await updateDoc(docRef, { likes: increment(1) });
       } catch (e) {
         console.error(e);
-        alert("Ошибка: данные отклонены сервером (проверь Rules).");
+        alert("Лайк отклонён сервером (проверь Rules): " + e.message);
       }
     });
+
+    window.tryDelete = async (id) => {
+      const ref = doc(db, "requests", id);
+      return deleteDoc(ref);
+    };
+
+    window.tryEdit = async (id) => {
+      const ref = doc(db, "requests", id);
+      return updateDoc(ref, { name: "HACKED" });
+    };
+
+    console.log("App ready. Для теста: tryDelete('ID') / tryEdit('ID')");
   </script>
+
 </body>
 </html>
