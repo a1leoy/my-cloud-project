@@ -3,89 +3,90 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DM (Firebase)</title>
+  <title>DM + Users (Firebase)</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; display:grid; place-items:center; }
-    .wrap { width:100%; max-width:980px; display:grid; gap:14px; }
-    .card { background:#fff; border-radius:14px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.10); }
+    body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
+    .center { min-height: calc(100vh - 40px); display:grid; place-items:center; }
+    .card { width:100%; max-width:980px; background:#fff; border-radius:14px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.10); }
     h2 { margin:0 0 10px; font-size:18px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:320px; max-width:100%; }
+    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:260px; max-width:100%; }
     input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
     button { padding:10px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
     button:disabled { opacity:.6; cursor:not-allowed; }
-    .muted { color:#6b7280; font-size:12px; min-height:16px; }
-    .grid { display:grid; grid-template-columns: 320px 1fr; gap:14px; }
-    .list { display:grid; gap:8px; }
+    .muted { color:#6b7280; font-size:12px; min-height:16px; margin-top:8px; }
+    .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .badge { font-size:12px; color:#6b7280; }
+
+    .grid { display:grid; grid-template-columns: 320px 1fr; gap:14px; margin-top:12px; }
+    .panel { border:1px solid #e5e7eb; border-radius:12px; padding:10px; }
+    .list { display:grid; gap:8px; margin-top:10px; max-height:460px; overflow:auto; }
     .item { padding:10px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; }
     .item:hover { background:#f9fafb; }
     .item b { display:block; }
-    .chat { display:grid; gap:10px; }
-    .msgs { height:360px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
+    .item small { display:block; color:#6b7280; margin-top:4px; }
+
+    .msgs { height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
     .msg { margin:6px 0; padding:8px 10px; border-radius:12px; max-width:80%; }
     .me { background:#dbeafe; margin-left:auto; }
     .them { background:#f3f4f6; margin-right:auto; }
     .msg small { display:block; color:#6b7280; margin-top:4px; font-size:11px; }
-    .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .badge { font-size:12px; color:#6b7280; }
-    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } input { width:100%; } }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="center">
 
-    <div class="card">
+    <div class="card" id="authCard">
       <div class="topline">
-        <h2>Аккаунт</h2>
+        <h2>Регистрация / Вход</h2>
         <div class="badge" id="conn">—</div>
       </div>
 
       <div class="row">
-        <input id="name" placeholder="Имя (для профиля)" />
+        <input id="name" placeholder="Имя" />
         <input id="email" placeholder="Email" />
         <input id="password" type="password" placeholder="Пароль (мин. 6)" />
         <button id="btnRegister">Регистрация</button>
         <button id="btnLogin">Вход</button>
-        <button id="btnLogout" disabled>Выход</button>
       </div>
       <div class="muted" id="authStatus"></div>
+      <div class="muted">После входа откроется список пользователей и личные сообщения.</div>
     </div>
 
-    <div class="card" id="dmCard" style="display:none;">
+    <div class="card" id="appCard" style="display:none;">
       <div class="topline">
         <h2>Личные сообщения (DM)</h2>
-        <div class="badge" id="meBadge">—</div>
+        <div class="row" style="justify-content:flex-end;">
+          <div class="badge" id="meBadge">—</div>
+          <button id="btnLogout">Выход</button>
+        </div>
       </div>
 
       <div class="grid">
-        <!-- LEFT -->
-        <div>
+        <div class="panel">
           <div class="row">
-            <input id="peerEmail" placeholder="Email собеседника" />
-            <button id="btnOpen">Открыть чат</button>
+            <input id="userSearch" placeholder="Поиск (имя или email)" />
           </div>
-          <div class="muted" id="dmStatus"></div>
-
-          <h2 style="margin-top:14px;">Диалоги</h2>
-          <div class="list" id="convs"></div>
+          <div class="muted" id="usersStatus"></div>
+          <div class="list" id="usersList"></div>
         </div>
 
-        <div class="chat">
-          <div class="topline">
-            <div>
-              <b id="chatTitle">Чат не выбран</b>
-              <div class="muted" id="chatSub"></div>
-            </div>
+        <div>
+          <div class="panel" style="margin-bottom:10px;">
+            <b id="chatTitle">Выберите пользователя слева</b>
+            <div class="muted" id="chatSub"></div>
           </div>
 
           <div class="msgs" id="msgs"></div>
 
-          <div class="row">
+          <div class="row" style="margin-top:10px;">
             <input id="text" placeholder="Сообщение..." style="flex:1; width:auto; min-width:240px;" />
             <button id="btnSend" disabled>Отправить</button>
           </div>
-          <div class="muted">Тест: открой в двух браузерах — сообщения/обновления появятся сразу.</div>
+          <div class="muted">Тест: открой в двух браузерах — сообщения должны появляться сразу.</div>
         </div>
       </div>
     </div>
@@ -96,7 +97,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import {
       getFirestore, doc, setDoc, getDoc, updateDoc,
-      collection, addDoc, query, where, orderBy, onSnapshot,
+      collection, addDoc, query, orderBy, onSnapshot,
       serverTimestamp, limit
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
@@ -116,41 +117,43 @@
     };
 
     const app = initializeApp(firebaseConfig);
+
     const db = getFirestore(app, "aleoy");
+
     const auth = getAuth(app);
 
     const el = (id) => document.getElementById(id);
-    const authStatus = el("authStatus");
-    const dmStatus = el("dmStatus");
-    const dmCard = el("dmCard");
-    const convsEl = el("convs");
-    const msgsEl = el("msgs");
-    const chatTitle = el("chatTitle");
-    const chatSub = el("chatSub");
-    const meBadge = el("meBadge");
+
+    const authCard = el("authCard");
+    const appCard = el("appCard");
     const conn = el("conn");
-
-    const btnRegister = el("btnRegister");
-    const btnLogin = el("btnLogin");
-    const btnLogout = el("btnLogout");
-    const btnOpen = el("btnOpen");
-    const btnSend = el("btnSend");
-
+    const authStatus = el("authStatus");
     const nameEl = el("name");
     const emailEl = el("email");
     const passEl = el("password");
-    const peerEmailEl = el("peerEmail");
+    const btnRegister = el("btnRegister");
+    const btnLogin = el("btnLogin");
+
+    const meBadge = el("meBadge");
+    const btnLogout = el("btnLogout");
+    const userSearch = el("userSearch");
+    const usersStatus = el("usersStatus");
+    const usersList = el("usersList");
+
+    const chatTitle = el("chatTitle");
+    const chatSub = el("chatSub");
+    const msgsEl = el("msgs");
     const textEl = el("text");
+    const btnSend = el("btnSend");
 
     let me = null;
     let activeConvId = null;
     let activePeerUid = null;
-    let unsubConvs = null;
+    let unsubUsers = null;
     let unsubMsgs = null;
 
+    const setText = (node, t) => node.textContent = t || "";
     const uidPairId = (a, b) => [a, b].sort().join("_");
-
-    function setText(node, text) { node.textContent = text || ""; }
 
     btnRegister.onclick = async () => {
       const name = nameEl.value.trim();
@@ -199,28 +202,30 @@
     onAuthStateChanged(auth, async (user) => {
       me = user || null;
 
-      if (unsubConvs) unsubConvs();
+      if (unsubUsers) unsubUsers();
       if (unsubMsgs) unsubMsgs();
-      unsubConvs = null; unsubMsgs = null;
-      activeConvId = null; activePeerUid = null;
+      unsubUsers = null;
+      unsubMsgs = null;
+
+      usersList.innerHTML = "";
       msgsEl.innerHTML = "";
-      convsEl.innerHTML = "";
       btnSend.disabled = true;
+      activeConvId = null;
+      activePeerUid = null;
+      setText(chatTitle, "Выберите пользователя слева");
+      setText(chatSub, "");
+      setText(usersStatus, "");
 
       if (!me) {
-        dmCard.style.display = "none";
-        btnLogout.disabled = true;
-        setText(meBadge, "—");
+        authCard.style.display = "";
+        appCard.style.display = "none";
         setText(conn, "Вы не вошли");
-        setText(chatTitle, "Чат не выбран");
-        setText(chatSub, "");
         return;
       }
-
-      dmCard.style.display = "";
-      btnLogout.disabled = false;
-      setText(meBadge, `Вы: ${me.email}`);
+      authCard.style.display = "none";
+      appCard.style.display = "";
       setText(conn, "Онлайн");
+      setText(meBadge, `Вы: ${me.email}`);
 
       await setDoc(doc(db, "users", me.uid), {
         email: me.email,
@@ -228,124 +233,70 @@
         createdAt: serverTimestamp()
       }, { merge: true });
 
-      const convQ = query(
-        collection(db, "conversations"),
-        where("participants", "array-contains", me.uid),
-        orderBy("updatedAt", "desc"),
-        limit(50)
-      );
+      const usersQ = query(collection(db, "users"), orderBy("name", "asc"), limit(200));
 
-      unsubConvs = onSnapshot(convQ, async (snap) => {
-        convsEl.innerHTML = "";
-        setText(dmStatus, "");
+      unsubUsers = onSnapshot(usersQ, (snap) => {
+        const q = userSearch.value.trim().toLowerCase();
 
-        if (snap.empty) {
-          convsEl.innerHTML = `<div class="muted">Диалогов пока нет</div>`;
-          return;
-        }
+        usersList.innerHTML = "";
+        let count = 0;
 
-        for (const d of snap.docs) {
-          const data = d.data();
-          const otherUid = (data.participants || []).find(x => x !== me.uid);
-          let label = otherUid || "unknown";
+        snap.forEach((d) => {
+          if (d.id === me.uid) return;
 
-          if (otherUid) {
-            const uDoc = await getDoc(doc(db, "users", otherUid));
-            if (uDoc.exists()) {
-              const u = uDoc.data();
-              label = `${u.name || "(без имени)"} — ${u.email || otherUid}`;
-            }
-          }
+          const u = d.data();
+          const name = (u.name || "").toString();
+          const email = (u.email || "").toString();
+
+          const hay = (name + " " + email).toLowerCase();
+          if (q && !hay.includes(q)) return;
+
+          count++;
 
           const div = document.createElement("div");
           div.className = "item";
-          div.innerHTML = `<b>${label}</b><div class="muted">${data.lastMessage || ""}</div>`;
-          div.onclick = () => openConversationById(d.id);
-          convsEl.appendChild(div);
-        }
+          div.innerHTML = `<b>${name || "(без имени)"}</b><small>${email || d.id}</small>`;
+          div.onclick = () => openChatWithUser(d.id, name, email);
+          usersList.appendChild(div);
+        });
+
+        setText(usersStatus, count ? `Пользователей: ${count}` : "Никого не найдено.");
+      }, (err) => {
+        console.error(err);
+        setText(usersStatus, "Ошибка списка пользователей: " + err.message);
       });
     });
 
-    btnOpen.onclick = async () => {
+    userSearch.addEventListener("input", () => {
+    });
+
+    async function openChatWithUser(peerUid, peerName, peerEmail) {
       if (!me) return;
 
-      const email = peerEmailEl.value.trim().toLowerCase();
-      if (!email.includes("@")) return setText(dmStatus, "Введи email собеседника.");
-
-      setText(dmStatus, "Поиск пользователя...");
-      try {
-        const uQ = query(collection(db, "users"), where("email", "==", email), limit(1));
-
-        let resolved = false;
-        const unsub = onSnapshot(uQ, async (snap) => {
-          if (resolved) return;
-          resolved = true;
-          unsub();
-
-          if (snap.empty) return setText(dmStatus, "Пользователь не найден (он должен зарегистрироваться).");
-
-          const peerDoc = snap.docs[0];
-          const peerUid = peerDoc.id;
-          if (peerUid === me.uid) return setText(dmStatus, "Нельзя писать самому себе.");
-
-          const convId = uidPairId(me.uid, peerUid);
-          const convRef = doc(db, "conversations", convId);
-
-          const convSnap = await getDoc(convRef);
-          if (!convSnap.exists()) {
-            await setDoc(convRef, {
-              participants: [me.uid, peerUid],
-              updatedAt: serverTimestamp(),
-              lastMessage: ""
-            });
-          }
-
-          setText(dmStatus, "Чат открыт ✅");
-          await openConversationById(convId);
-        });
-
-      } catch (e) {
-        console.error(e);
-        setText(dmStatus, "Ошибка: " + (e.code || e.message));
-      }
-    };
-
-    async function openConversationById(convId) {
-      if (!me) return;
-
-      activeConvId = convId;
-      setText(chatTitle, "Чат: " + convId);
-      setText(chatSub, "");
-      msgsEl.innerHTML = "";
-      btnSend.disabled = false;
-
-      if (unsubMsgs) unsubMsgs();
-
+      const convId = uidPairId(me.uid, peerUid);
       const convRef = doc(db, "conversations", convId);
+
       const convSnap = await getDoc(convRef);
       if (!convSnap.exists()) {
-        setText(chatSub, "Чат не найден");
-        btnSend.disabled = true;
-        return;
+        await setDoc(convRef, {
+          participants: [me.uid, peerUid],
+          updatedAt: serverTimestamp(),
+          lastMessage: ""
+        });
       }
-
-      const conv = convSnap.data();
-      const peerUid = (conv.participants || []).find(x => x !== me.uid) || null;
+      activeConvId = convId;
       activePeerUid = peerUid;
+      setText(chatTitle, peerName ? `Чат с: ${peerName}` : "Чат");
+      setText(chatSub, peerEmail || peerUid);
+      btnSend.disabled = false;
 
-      if (peerUid) {
-        const u = await getDoc(doc(db, "users", peerUid));
-        if (u.exists()) {
-          const ud = u.data();
-          setText(chatTitle, ud.name ? `Чат с: ${ud.name}` : "Чат");
-          setText(chatSub, ud.email || peerUid);
-        }
-      }
+      msgsEl.innerHTML = "";
+      if (unsubMsgs) unsubMsgs();
 
       const msgQ = query(
         collection(db, "conversations", convId, "messages"),
         orderBy("createdAt", "asc"),
-        limit(200)
+        limit(300)
       );
 
       unsubMsgs = onSnapshot(msgQ, (snap) => {
@@ -355,15 +306,16 @@
           const div = document.createElement("div");
           div.className = "msg " + (data.from === me.uid ? "me" : "them");
           div.textContent = data.text || "";
+
           const t = document.createElement("small");
           t.textContent = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "…";
           div.appendChild(t);
+
           msgsEl.appendChild(div);
         });
         msgsEl.scrollTop = msgsEl.scrollHeight;
       });
     }
-
     btnSend.onclick = async () => {
       if (!me || !activeConvId || !activePeerUid) return;
 
@@ -392,12 +344,6 @@
         btnSend.disabled = false;
       }
     };
-
-    window.tryDeleteConversation = async (convId) => {
-      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js");
-      return deleteDoc(doc(db, "conversations", convId));
-    };
-    window.tryEditConversation = async (convId) => updateDoc(doc(db, "conversations", convId), { lastMessage: "HACKED" });
   </script>
 </body>
 </html>
