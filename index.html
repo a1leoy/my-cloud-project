@@ -3,37 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DM + Users (Firebase)</title>
+  <title>DM (Users → Chat)</title>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
     .center { min-height: calc(100vh - 40px); display:grid; place-items:center; }
     .card { width:100%; max-width:980px; background:#fff; border-radius:14px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.10); }
     h2 { margin:0 0 10px; font-size:18px; }
+    .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+    .badge { font-size:12px; color:#6b7280; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:260px; max-width:100%; }
     input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
     button { padding:10px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
+    button.secondary { background:#e5e7eb; color:#111; }
     button:disabled { opacity:.6; cursor:not-allowed; }
     .muted { color:#6b7280; font-size:12px; min-height:16px; margin-top:8px; }
-    .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .badge { font-size:12px; color:#6b7280; }
 
-    .grid { display:grid; grid-template-columns: 320px 1fr; gap:14px; margin-top:12px; }
-    .panel { border:1px solid #e5e7eb; border-radius:12px; padding:10px; }
-    .list { display:grid; gap:8px; margin-top:10px; max-height:460px; overflow:auto; }
+    .list { display:grid; gap:8px; margin-top:10px; max-height:520px; overflow:auto; }
     .item { padding:10px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; }
     .item:hover { background:#f9fafb; }
     .item b { display:block; }
     .item small { display:block; color:#6b7280; margin-top:4px; }
 
-    .msgs { height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
+    .chatWrap { display:grid; gap:10px; }
+    .msgs { height:520px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
     .msg { margin:6px 0; padding:8px 10px; border-radius:12px; max-width:80%; }
     .me { background:#dbeafe; margin-left:auto; }
     .them { background:#f3f4f6; margin-right:auto; }
     .msg small { display:block; color:#6b7280; margin-top:4px; font-size:11px; }
 
-    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } input { width:100%; } }
+    @media (max-width: 860px) { input { width:100%; } }
   </style>
 </head>
 <body>
@@ -53,41 +53,44 @@
         <button id="btnLogin">Вход</button>
       </div>
       <div class="muted" id="authStatus"></div>
-      <div class="muted">После входа откроется список пользователей и личные сообщения.</div>
     </div>
 
-    <div class="card" id="appCard" style="display:none;">
+    <div class="card" id="usersCard" style="display:none;">
       <div class="topline">
-        <h2>Личные сообщения (DM)</h2>
+        <h2>Пользователи</h2>
         <div class="row" style="justify-content:flex-end;">
           <div class="badge" id="meBadge">—</div>
           <button id="btnLogout">Выход</button>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="panel">
-          <div class="row">
-            <input id="userSearch" placeholder="Поиск (имя или email)" />
-          </div>
-          <div class="muted" id="usersStatus"></div>
-          <div class="list" id="usersList"></div>
-        </div>
+      <div class="row">
+        <input id="userSearch" placeholder="Поиск (имя или email)" />
+      </div>
+      <div class="muted" id="usersStatus"></div>
+      <div class="list" id="usersList"></div>
+    </div>
 
+    <div class="card" id="chatCard" style="display:none;">
+      <div class="topline">
         <div>
-          <div class="panel" style="margin-bottom:10px;">
-            <b id="chatTitle">Выберите пользователя слева</b>
-            <div class="muted" id="chatSub"></div>
-          </div>
-
-          <div class="msgs" id="msgs"></div>
-
-          <div class="row" style="margin-top:10px;">
-            <input id="text" placeholder="Сообщение..." style="flex:1; width:auto; min-width:240px;" />
-            <button id="btnSend" disabled>Отправить</button>
-          </div>
-          <div class="muted">Тест: открой в двух браузерах — сообщения должны появляться сразу.</div>
+          <h2 id="chatTitle">Чат</h2>
+          <div class="badge" id="chatSub"></div>
         </div>
+        <div class="row" style="justify-content:flex-end;">
+          <button class="secondary" id="btnBack">← Назад</button>
+          <button id="btnLogout2">Выход</button>
+        </div>
+      </div>
+
+      <div class="chatWrap">
+        <div class="msgs" id="msgs"></div>
+
+        <div class="row">
+          <input id="text" placeholder="Сообщение..." style="flex:1; width:auto; min-width:240px;" />
+          <button id="btnSend" disabled>Отправить</button>
+        </div>
+        <div class="muted">Тест: открой в двух браузерах — сообщения появляются сразу.</div>
       </div>
     </div>
 
@@ -97,7 +100,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import {
       getFirestore, doc, setDoc, getDoc, updateDoc,
-      collection, addDoc, query, orderBy, onSnapshot,
+      collection, addDoc, query, where, orderBy, onSnapshot,
       serverTimestamp, limit
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
@@ -117,49 +120,26 @@
     };
 
     const app = initializeApp(firebaseConfig);
-
     const db = getFirestore(app, "aleoy");
-
     const auth = getAuth(app);
 
     const el = (id) => document.getElementById(id);
+    const setText = (node, t) => node.textContent = t || "";
+    const uidPairId = (a, b) => [a, b].sort().join("_");
 
     const authCard = el("authCard");
-    const appCard = el("appCard");
+    const usersCard = el("usersCard");
+    const chatCard = el("chatCard");
+
     const conn = el("conn");
     const authStatus = el("authStatus");
     const nameEl = el("name");
     const emailEl = el("email");
     const passEl = el("password");
-    const btnRegister = el("btnRegister");
-    const btnLogin = el("btnLogin");
-
-    const meBadge = el("meBadge");
-    const btnLogout = el("btnLogout");
-    const userSearch = el("userSearch");
-    const usersStatus = el("usersStatus");
-    const usersList = el("usersList");
-
-    const chatTitle = el("chatTitle");
-    const chatSub = el("chatSub");
-    const msgsEl = el("msgs");
-    const textEl = el("text");
-    const btnSend = el("btnSend");
-
-    let me = null;
-    let activeConvId = null;
-    let activePeerUid = null;
-    let unsubUsers = null;
-    let unsubMsgs = null;
-
-    const setText = (node, t) => node.textContent = t || "";
-    const uidPairId = (a, b) => [a, b].sort().join("_");
-
-    btnRegister.onclick = async () => {
+    el("btnRegister").onclick = async () => {
       const name = nameEl.value.trim();
       const email = emailEl.value.trim().toLowerCase();
       const pass = passEl.value;
-
       if (name.length < 2) return setText(authStatus, "Имя слишком короткое.");
       if (!email.includes("@")) return setText(authStatus, "Проверь email.");
       if (!pass || pass.length < 6) return setText(authStatus, "Пароль минимум 6 символов.");
@@ -168,21 +148,14 @@
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         await updateProfile(cred.user, { displayName: name });
-
-        await setDoc(doc(db, "users", cred.user.uid), {
-          email,
-          name,
-          createdAt: serverTimestamp()
-        }, { merge: true });
-
+        await setDoc(doc(db, "users", cred.user.uid), { email, name, createdAt: serverTimestamp() }, { merge: true });
         setText(authStatus, "Готово ✅");
       } catch (e) {
         console.error(e);
         setText(authStatus, "Ошибка: " + (e.code || e.message));
       }
     };
-
-    btnLogin.onclick = async () => {
+    el("btnLogin").onclick = async () => {
       const email = emailEl.value.trim().toLowerCase();
       const pass = passEl.value;
       setText(authStatus, "Вход...");
@@ -195,8 +168,52 @@
       }
     };
 
-    btnLogout.onclick = async () => {
-      await signOut(auth);
+    const meBadge = el("meBadge");
+    const usersStatus = el("usersStatus");
+    const usersList = el("usersList");
+    const userSearch = el("userSearch");
+
+    const chatTitle = el("chatTitle");
+    const chatSub = el("chatSub");
+    const msgsEl = el("msgs");
+    const textEl = el("text");
+    const btnSend = el("btnSend");
+
+    const btnLogout = async () => signOut(auth);
+    el("btnLogout").onclick = btnLogout;
+    el("btnLogout2").onclick = btnLogout;
+
+    let me = null;
+    let activeConvId = null;
+    let activePeerUid = null;
+    let unsubUsers = null;
+    let unsubMsgs = null;
+
+    function showAuth() {
+      authCard.style.display = "";
+      usersCard.style.display = "none";
+      chatCard.style.display = "none";
+    }
+    function showUsers() {
+      authCard.style.display = "none";
+      usersCard.style.display = "";
+      chatCard.style.display = "none";
+    }
+    function showChat() {
+      authCard.style.display = "none";
+      usersCard.style.display = "none";
+      chatCard.style.display = "";
+    }
+
+    el("btnBack").onclick = () => {
+      if (unsubMsgs) unsubMsgs();
+      unsubMsgs = null;
+      activeConvId = null;
+      activePeerUid = null;
+      msgsEl.innerHTML = "";
+      btnSend.disabled = true;
+      textEl.value = "";
+      showUsers();
     };
 
     onAuthStateChanged(auth, async (user) => {
@@ -204,26 +221,21 @@
 
       if (unsubUsers) unsubUsers();
       if (unsubMsgs) unsubMsgs();
-      unsubUsers = null;
-      unsubMsgs = null;
+      unsubUsers = null; unsubMsgs = null;
 
       usersList.innerHTML = "";
       msgsEl.innerHTML = "";
       btnSend.disabled = true;
       activeConvId = null;
       activePeerUid = null;
-      setText(chatTitle, "Выберите пользователя слева");
-      setText(chatSub, "");
-      setText(usersStatus, "");
 
       if (!me) {
-        authCard.style.display = "";
-        appCard.style.display = "none";
+        showAuth();
         setText(conn, "Вы не вошли");
         return;
       }
-      authCard.style.display = "none";
-      appCard.style.display = "";
+
+      showUsers();
       setText(conn, "Онлайн");
       setText(meBadge, `Вы: ${me.email}`);
 
@@ -233,26 +245,21 @@
         createdAt: serverTimestamp()
       }, { merge: true });
 
-      const usersQ = query(collection(db, "users"), orderBy("name", "asc"), limit(200));
-
+      const usersQ = query(collection(db, "users"), orderBy("name", "asc"), limit(300));
       unsubUsers = onSnapshot(usersQ, (snap) => {
         const q = userSearch.value.trim().toLowerCase();
-
         usersList.innerHTML = "";
         let count = 0;
 
         snap.forEach((d) => {
           if (d.id === me.uid) return;
-
           const u = d.data();
           const name = (u.name || "").toString();
           const email = (u.email || "").toString();
-
           const hay = (name + " " + email).toLowerCase();
           if (q && !hay.includes(q)) return;
 
           count++;
-
           const div = document.createElement("div");
           div.className = "item";
           div.innerHTML = `<b>${name || "(без имени)"}</b><small>${email || d.id}</small>`;
@@ -284,15 +291,19 @@
           lastMessage: ""
         });
       }
+
       activeConvId = convId;
       activePeerUid = peerUid;
       setText(chatTitle, peerName ? `Чат с: ${peerName}` : "Чат");
       setText(chatSub, peerEmail || peerUid);
-      btnSend.disabled = false;
 
       msgsEl.innerHTML = "";
-      if (unsubMsgs) unsubMsgs();
+      textEl.value = "";
+      btnSend.disabled = false;
 
+      showChat();
+
+      if (unsubMsgs) unsubMsgs();
       const msgQ = query(
         collection(db, "conversations", convId, "messages"),
         orderBy("createdAt", "asc"),
@@ -306,16 +317,15 @@
           const div = document.createElement("div");
           div.className = "msg " + (data.from === me.uid ? "me" : "them");
           div.textContent = data.text || "";
-
           const t = document.createElement("small");
           t.textContent = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "…";
           div.appendChild(t);
-
           msgsEl.appendChild(div);
         });
         msgsEl.scrollTop = msgsEl.scrollHeight;
       });
     }
+
     btnSend.onclick = async () => {
       if (!me || !activeConvId || !activePeerUid) return;
 
