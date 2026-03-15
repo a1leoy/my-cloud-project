@@ -17,12 +17,13 @@
     .meta { display:flex; justify-content:space-between; gap:10px; align-items:center; }
     .time { font-size:12px; color:#999; }
     .id { font-size:11px; color:#6b7280; margin-top:6px; word-break: break-all; }
-    .like-btn { margin-top:10px; background:#e2e6ea; color:#111; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; width:auto; }
+    .actions { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    .like-btn, .dislike-btn {
+      background:#e2e6ea; color:#111; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; width:auto;
+    }
     .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
     .conn { font-size:12px; color:#6b7280; }
     .small { font-size:12px; color:#6b7280; margin:8px 0 0; }
-    .row { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
-    .chip { font-size:12px; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#1f2937; }
   </style>
 </head>
 <body>
@@ -35,9 +36,17 @@
 
     <input type="text" id="name" placeholder="Имя профиля" />
     <input type="email" id="email" placeholder="Рабочий Email" />
+    <input type="password" id="password" placeholder="Пароль (мин. 6 символов)" />
 
-    <button id="mainBtn">Опубликовать в облако</button>
+    <button id="mainBtn">Зарегистрироваться и опубликовать</button>
     <div class="hint" id="status"></div>
+
+    <div class="small">
+      Тесты:
+      <br>1) Открой сайт в 2 браузерах → нажми 👍/👎 в одном → во втором обновится сразу.
+      <br>2) F12 Console: tryDelete('ID') / tryEdit('ID') → должно быть запрещено.
+    </div>
+  </div>
 
   <div id="feed"></div>
 
@@ -57,6 +66,13 @@
       deleteDoc
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      updateProfile
+    } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
     const firebaseConfig = {
       apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
       authDomain: "qwerty-889bc.firebaseapp.com",
@@ -68,7 +84,10 @@
     };
 
     const app = initializeApp(firebaseConfig);
+
     const db = getFirestore(app, "aleoy");
+
+    const auth = getAuth(app);
 
     const colRef = collection(db, "requests");
 
@@ -78,38 +97,55 @@
 
     const nameEl = document.getElementById("name");
     const emailEl = document.getElementById("email");
+    const passEl = document.getElementById("password");
     const mainBtn = document.getElementById("mainBtn");
 
-    function setStatus(msg) {
-      statusEl.textContent = msg || "";
-    }
+    const setStatus = (msg) => { statusEl.textContent = msg || ""; };
 
     mainBtn.addEventListener("click", async () => {
       const name = nameEl.value.trim();
       const email = emailEl.value.trim().toLowerCase();
+      const password = passEl.value;
 
-      if (!name || !email) {
-        setStatus("Заполни имя и email.");
-        return;
-      }
+      if (name.length < 3) return setStatus("Имя должно быть минимум 3 символа.");
+      if (!email.includes("@")) return setStatus("Проверь email.");
+      if (!password || password.length < 6) return setStatus("Пароль минимум 6 символов.");
 
       mainBtn.disabled = true;
-      setStatus("Отправка...");
+      setStatus("Регистрация/вход...");
 
       try {
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          await updateProfile(cred.user, { displayName: name });
+        } catch (e) {
+          if (e.code === "auth/email-already-in-use") {
+            await signInWithEmailAndPassword(auth, email, password);
+          } else {
+            throw e;
+          }
+        }
+
+        setStatus("Публикация в Firestore...");
+
+        const uid = auth.currentUser?.uid ?? null;
+
         const docRef = await addDoc(colRef, {
           name,
           email,
+          uid,
           likes: 0,
+          dislikes: 0,
           timestamp: serverTimestamp()
         });
 
         nameEl.value = "";
         emailEl.value = "";
+        passEl.value = "";
         setStatus("Сохранено ✅ id: " + docRef.id);
       } catch (e) {
         console.error(e);
-        setStatus("Ошибка: " + e.message);
+        setStatus("Ошибка: " + (e.message || e.code));
       } finally {
         mainBtn.disabled = false;
       }
@@ -121,10 +157,7 @@
       q,
       { includeMetadataChanges: true },
       (snapshot) => {
-        connEl.textContent = snapshot.metadata.fromCache
-          ? "Оффлайн/кэш (fromCache)"
-          : "Онлайн (live)";
-
+        connEl.textContent = snapshot.metadata.fromCache ? "Оффлайн/кэш" : "Онлайн (live)";
         feed.innerHTML = "";
 
         snapshot.forEach((docSnap) => {
@@ -137,19 +170,11 @@
           meta.className = "meta";
 
           const left = document.createElement("div");
-          const nameB = document.createElement("b");
-          nameB.textContent = data.name ?? "(без имени)";
-          const emailP = document.createElement("div");
-          emailP.textContent = data.email ?? "(без email)";
-          left.appendChild(nameB);
-          left.appendChild(document.createElement("br"));
-          left.appendChild(emailP);
+          left.innerHTML = `<b>${data.name ?? "(без имени)"}</b><br>${data.email ?? "(без email)"}`;
 
           const time = document.createElement("div");
           time.className = "time";
-          time.textContent = data.timestamp?.toDate
-            ? data.timestamp.toDate().toLocaleString()
-            : "…";
+          time.textContent = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleString() : "…";
 
           meta.appendChild(left);
           meta.appendChild(time);
@@ -158,14 +183,26 @@
           idLine.className = "id";
           idLine.textContent = "ID: " + docSnap.id;
 
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
           const likeBtn = document.createElement("button");
           likeBtn.className = "like-btn";
           likeBtn.dataset.id = docSnap.id;
           likeBtn.textContent = `👍 ${data.likes ?? 0}`;
 
+          const dislikeBtn = document.createElement("button");
+          dislikeBtn.className = "dislike-btn";
+          dislikeBtn.dataset.id = docSnap.id;
+          dislikeBtn.textContent = `👎 ${data.dislikes ?? 0}`;
+
+          actions.appendChild(likeBtn);
+          actions.appendChild(dislikeBtn);
+
           card.appendChild(meta);
           card.appendChild(idLine);
-          card.appendChild(likeBtn);
+          card.appendChild(actions);
+
           feed.appendChild(card);
         });
       },
@@ -176,31 +213,29 @@
     );
 
     feed.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".like-btn");
-      if (!btn) return;
+      const like = e.target.closest(".like-btn");
+      const dislike = e.target.closest(".dislike-btn");
+      if (!like && !dislike) return;
 
-      const id = btn.dataset.id;
-      const docRef = doc(db, "requests", id);
+      const id = (like || dislike).dataset.id;
+      const ref = doc(db, "requests", id);
 
       try {
-        await updateDoc(docRef, { likes: increment(1) });
-      } catch (e) {
-        console.error(e);
-        alert("Лайк отклонён сервером (проверь Rules): " + e.message);
+        if (like) {
+          await updateDoc(ref, { likes: increment(1) });
+        } else {
+          await updateDoc(ref, { dislikes: increment(1) });
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Отклонено сервером (Rules): " + err.message);
       }
     });
 
-    window.tryDelete = async (id) => {
-      const ref = doc(db, "requests", id);
-      return deleteDoc(ref);
-    };
+    window.tryDelete = async (id) => deleteDoc(doc(db, "requests", id));
+    window.tryEdit = async (id) => updateDoc(doc(db, "requests", id), { name: "HACKED" });
 
-    window.tryEdit = async (id) => {
-      const ref = doc(db, "requests", id);
-      return updateDoc(ref, { name: "HACKED" });
-    };
-
-    console.log("App ready. Для теста: tryDelete('ID') / tryEdit('ID')");
+    console.log("Ready. Tests: tryDelete('ID'), tryEdit('ID')");
   </script>
 
 </body>
