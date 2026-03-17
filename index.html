@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DM (Users → Chat)</title>
+  <title>DM (Users → Chat) + Likes</title>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
@@ -33,12 +33,25 @@
     .them { background:#f3f4f6; margin-right:auto; }
     .msg small { display:block; color:#6b7280; margin-top:4px; font-size:11px; }
 
+    .actions { display:flex; gap:8px; margin-top:6px; align-items:center; }
+    .likeBtn, .dislikeBtn{
+      border:0;
+      padding:6px 10px;
+      border-radius:999px;
+      cursor:pointer;
+      background:#e5e7eb;
+      color:#111;
+      font-size:12px;
+    }
+    .likeBtn:hover, .dislikeBtn:hover { filter: brightness(0.95); }
+
     @media (max-width: 860px) { input { width:100%; } }
   </style>
 </head>
 <body>
   <div class="center">
 
+    <!-- AUTH -->
     <div class="card" id="authCard">
       <div class="topline">
         <h2>Регистрация / Вход</h2>
@@ -55,6 +68,7 @@
       <div class="muted" id="authStatus"></div>
     </div>
 
+    <!-- USERS -->
     <div class="card" id="usersCard" style="display:none;">
       <div class="topline">
         <h2>Пользователи</h2>
@@ -101,7 +115,7 @@
     import {
       getFirestore, doc, setDoc, getDoc, updateDoc,
       collection, addDoc, query, orderBy, onSnapshot,
-      serverTimestamp, limit
+      serverTimestamp, limit, increment
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
     import {
@@ -109,7 +123,6 @@
       signInWithEmailAndPassword, signOut, updateProfile
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
-    // === ТВОЙ CONFIG ===
     const firebaseConfig = {
       apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
       authDomain: "qwerty-889bc.firebaseapp.com",
@@ -121,8 +134,8 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app, "aleoy");
 
+    const db = getFirestore(app, "aleoy");
     const auth = getAuth(app);
 
     const el = (id) => document.getElementById(id);
@@ -349,14 +362,38 @@
             msgsEl.innerHTML = "";
             snap.forEach((m) => {
               const data = m.data();
+
               const div = document.createElement("div");
               div.className = "msg " + (data.from === me.uid ? "me" : "them");
-              div.textContent = data.text || "";
+
+              const textNode = document.createElement("div");
+              textNode.textContent = data.text || "";
+              div.appendChild(textNode);
+
+              const actions = document.createElement("div");
+              actions.className = "actions";
+
+              const likeBtn = document.createElement("button");
+              likeBtn.className = "likeBtn";
+              likeBtn.dataset.mid = m.id;
+              likeBtn.textContent = `👍 ${data.likes ?? 0}`;
+
+              const dislikeBtn = document.createElement("button");
+              dislikeBtn.className = "dislikeBtn";
+              dislikeBtn.dataset.mid = m.id;
+              dislikeBtn.textContent = `👎 ${data.dislikes ?? 0}`;
+
+              actions.appendChild(likeBtn);
+              actions.appendChild(dislikeBtn);
+              div.appendChild(actions);
+
               const t = document.createElement("small");
               t.textContent = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "…";
               div.appendChild(t);
+
               msgsEl.appendChild(div);
             });
+
             msgsEl.scrollTop = msgsEl.scrollHeight;
             btnSend.disabled = false;
             setText(chatStatus, "");
@@ -388,6 +425,8 @@
           from: me.uid,
           to: activePeerUid,
           text,
+          likes: 0,
+          dislikes: 0,
           createdAt: serverTimestamp()
         });
 
@@ -407,7 +446,28 @@
       }
     };
 
-    console.log("DM app ready.");
+    msgsEl.addEventListener("click", async (e) => {
+      const like = e.target.closest(".likeBtn");
+      const dislike = e.target.closest(".dislikeBtn");
+      if (!like && !dislike) return;
+      if (!activeConvId) return;
+
+      const mid = (like || dislike).dataset.mid;
+      const msgRef = doc(db, "conversations", activeConvId, "messages", mid);
+
+      try {
+        if (like) {
+          await updateDoc(msgRef, { likes: increment(1) });
+        } else {
+          await updateDoc(msgRef, { dislikes: increment(1) });
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Лайк/дизлайк отклонён (Rules): " + err.message);
+      }
+    });
+
+    console.log("DM app ready (with likes/dislikes).");
   </script>
 </body>
 </html>
