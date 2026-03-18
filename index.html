@@ -3,36 +3,70 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DM (Users → Chat) + User Likes</title>
+  <title>DM (Google only) + Avatars + User Likes</title>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
     .center { min-height: calc(100vh - 40px); display:grid; place-items:center; }
     .card { width:100%; max-width:980px; background:#fff; border-radius:14px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.10); }
+
     h2 { margin:0 0 10px; font-size:18px; }
     .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
     .badge { font-size:12px; color:#6b7280; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:260px; max-width:100%; }
-    input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
     button { padding:10px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
     button.secondary { background:#e5e7eb; color:#111; }
     button:disabled { opacity:.6; cursor:not-allowed; }
+    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:260px; max-width:100%; }
+    input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
+
     .muted { color:#6b7280; font-size:12px; min-height:16px; margin-top:8px; }
 
+    /* Users list */
     .list { display:grid; gap:8px; margin-top:10px; max-height:520px; overflow:auto; }
-    .item { padding:10px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    .item {
+      padding:10px;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      cursor:pointer;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+    }
     .item:hover { background:#f9fafb; }
-    .itemLeft b { display:block; }
-    .itemLeft small { display:block; color:#6b7280; margin-top:4px; }
 
-    .uActions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .leftBlock { display:flex; gap:10px; align-items:center; min-width:0; }
+    .avatar {
+      width:38px; height:38px;
+      border-radius:999px;
+      object-fit:cover;
+      background:#e5e7eb;
+      flex: 0 0 auto;
+    }
+    .avatarFallback{
+      width:38px; height:38px;
+      border-radius:999px;
+      background:#e5e7eb;
+      display:grid;
+      place-items:center;
+      font-weight:700;
+      color:#374151;
+      flex: 0 0 auto;
+      user-select:none;
+    }
+    .textBlock { min-width:0; }
+    .textBlock b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .textBlock small { display:block; color:#6b7280; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:360px; }
+
+    .uActions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; }
     .pill {
       border:0; padding:6px 10px; border-radius:999px; cursor:pointer;
       background:#e5e7eb; color:#111; font-size:12px;
     }
     .pill:hover { filter: brightness(0.95); }
 
+    /* Chat */
     .chatWrap { display:grid; gap:10px; }
     .msgs { height:520px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:10px; background:#fff; }
     .msg { margin:6px 0; padding:8px 10px; border-radius:12px; max-width:80%; white-space:pre-wrap; word-break:break-word; }
@@ -40,27 +74,28 @@
     .them { background:#f3f4f6; margin-right:auto; }
     .msg small { display:block; color:#6b7280; margin-top:4px; font-size:11px; }
 
-    @media (max-width: 860px) { input { width:100%; } .item { align-items:flex-start; } }
+    @media (max-width: 860px) {
+      input { width:100%; }
+      .item { align-items:flex-start; }
+      .textBlock small { max-width:220px; }
+    }
   </style>
 </head>
 <body>
   <div class="center">
 
-    <!-- AUTH -->
+    <!-- AUTH (Google only) -->
     <div class="card" id="authCard">
       <div class="topline">
-        <h2>Регистрация / Вход</h2>
+        <h2>Вход</h2>
         <div class="badge" id="conn">—</div>
       </div>
 
       <div class="row">
-        <input id="name" placeholder="Имя" />
-        <input id="email" placeholder="Email" />
-        <input id="password" type="password" placeholder="Пароль (мин. 6)" />
-        <button id="btnRegister">Регистрация</button>
-        <button id="btnLogin">Вход</button>
+        <button id="btnGoogle">Войти через Google</button>
       </div>
       <div class="muted" id="authStatus"></div>
+      <div class="muted">После входа откроется список пользователей. Лайки/дизлайки видны всем.</div>
     </div>
 
     <!-- USERS -->
@@ -69,7 +104,7 @@
         <h2>Пользователи</h2>
         <div class="row" style="justify-content:flex-end;">
           <div class="badge" id="meBadge">—</div>
-          <button id="btnLogout">Выход</button>
+          <button id="btnLogout" class="secondary">Выход</button>
         </div>
       </div>
 
@@ -89,7 +124,7 @@
         </div>
         <div class="row" style="justify-content:flex-end;">
           <button class="secondary" id="btnBack">← Назад</button>
-          <button id="btnLogout2">Выход</button>
+          <button id="btnLogout2" class="secondary">Выход</button>
         </div>
       </div>
 
@@ -115,8 +150,8 @@
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
     import {
-      getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
-      signInWithEmailAndPassword, signOut, updateProfile
+      getAuth, onAuthStateChanged, signOut,
+      GoogleAuthProvider, signInWithPopup
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -145,11 +180,7 @@
     // Auth UI
     const conn = el("conn");
     const authStatus = el("authStatus");
-    const nameEl = el("name");
-    const emailEl = el("email");
-    const passEl = el("password");
-    const btnRegister = el("btnRegister");
-    const btnLogin = el("btnLogin");
+    const btnGoogle = el("btnGoogle");
 
     // Users UI
     const meBadge = el("meBadge");
@@ -206,26 +237,48 @@
       for (const u of filtered) {
         const item = document.createElement("div");
         item.className = "item";
-        item.dataset.uid = u.uid;
-        item.dataset.name = u.name;
-        item.dataset.email = u.email;
 
         const left = document.createElement("div");
-        left.className = "itemLeft";
-        left.innerHTML = `<b>${u.name || "(без имени)"}</b><small>${u.email || u.uid}</small>`;
+        left.className = "leftBlock";
+
+        if (u.photoURL) {
+          const img = document.createElement("img");
+          img.className = "avatar";
+          img.src = u.photoURL;
+          img.alt = "avatar";
+
+          img.onerror = () => {
+            img.remove();
+            left.prepend(makeAvatarFallback(u.name));
+          };
+          left.appendChild(img);
+        } else {
+          left.appendChild(makeAvatarFallback(u.name));
+        }
+
+        const text = document.createElement("div");
+        text.className = "textBlock";
+        text.innerHTML = `<b>${u.name || "(без имени)"}</b><small>${u.email || u.uid}</small>`;
+        left.appendChild(text);
 
         const actions = document.createElement("div");
         actions.className = "uActions";
 
         const likeBtn = document.createElement("button");
-        likeBtn.className = "pill uLike";
-        likeBtn.dataset.uid = u.uid;
+        likeBtn.className = "pill";
         likeBtn.textContent = `👍 ${u.likes ?? 0}`;
+        likeBtn.onclick = async (ev) => {
+          ev.stopPropagation();
+          await reactToUser(u.uid, "likes");
+        };
 
         const dislikeBtn = document.createElement("button");
-        dislikeBtn.className = "pill uDislike";
-        dislikeBtn.dataset.uid = u.uid;
+        dislikeBtn.className = "pill";
         dislikeBtn.textContent = `👎 ${u.dislikes ?? 0}`;
+        dislikeBtn.onclick = async (ev) => {
+          ev.stopPropagation();
+          await reactToUser(u.uid, "dislikes");
+        };
 
         actions.appendChild(likeBtn);
         actions.appendChild(dislikeBtn);
@@ -233,23 +286,18 @@
         item.appendChild(left);
         item.appendChild(actions);
 
-        item.addEventListener("click", (ev) => {
-          const isBtn = ev.target.closest(".uLike, .uDislike");
-          if (isBtn) return;
-          openChatWithUser(u.uid, u.name, u.email);
-        });
-
-        likeBtn.addEventListener("click", async (ev) => {
-          ev.stopPropagation();
-          await reactToUser(u.uid, "likes");
-        });
-        dislikeBtn.addEventListener("click", async (ev) => {
-          ev.stopPropagation();
-          await reactToUser(u.uid, "dislikes");
-        });
+        item.onclick = () => openChatWithUser(u.uid, u.name, u.email);
 
         usersList.appendChild(item);
       }
+    }
+
+    function makeAvatarFallback(name) {
+      const d = document.createElement("div");
+      d.className = "avatarFallback";
+      const letter = (name && name.trim()) ? name.trim()[0].toUpperCase() : "?";
+      d.textContent = letter;
+      return d;
     }
 
     async function reactToUser(uid, field) {
@@ -263,46 +311,16 @@
 
     userSearch.addEventListener("input", renderUsers);
 
-    btnRegister.onclick = async () => {
-      const name = nameEl.value.trim();
-      const email = emailEl.value.trim().toLowerCase();
-      const pass = passEl.value;
-
-      if (name.length < 2) return setText(authStatus, "Имя слишком короткое.");
-      if (!email.includes("@")) return setText(authStatus, "Проверь email.");
-      if (!pass || pass.length < 6) return setText(authStatus, "Пароль минимум 6 символов.");
-
-      setText(authStatus, "Регистрация...");
+    // === Google sign-in only ===
+    btnGoogle.onclick = async () => {
+      setText(authStatus, "Вход через Google...");
       try {
-        const cred = await createUserWithEmailAndPassword(auth, email, pass);
-        await updateProfile(cred.user, { displayName: name });
-
-        // при создании профиля задаём лайки/дизлайки = 0
-        await setDoc(doc(db, "users", cred.user.uid), {
-          email, name,
-          likes: 0,
-          dislikes: 0,
-          createdAt: serverTimestamp()
-        }, { merge: true });
-
-        setText(authStatus, "Готово ✅");
-      } catch (e) {
-        console.error(e);
-        setText(authStatus, "Ошибка: " + (e.code || e.message));
-      }
-    };
-
-    btnLogin.onclick = async () => {
-      const email = emailEl.value.trim().toLowerCase();
-      const pass = passEl.value;
-
-      setText(authStatus, "Вход...");
-      try {
-        await signInWithEmailAndPassword(auth, email, pass);
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
         setText(authStatus, "Вошли ✅");
       } catch (e) {
         console.error(e);
-        setText(authStatus, "Ошибка: " + (e.code || e.message));
+        setText(authStatus, "Ошибка Google-входа: " + (e.code || e.message));
       }
     };
 
@@ -344,36 +362,40 @@
       }
 
       setText(conn, "Онлайн");
-      setText(meBadge, `Вы: ${me.email}`);
+      setText(meBadge, `Вы: ${me.email || me.uid}`);
       showUsers();
 
       const myRef = doc(db, "users", me.uid);
       const mySnap = await getDoc(myRef);
+
+      const baseProfile = {
+        email: me.email || "",
+        name: me.displayName || "Google User",
+        photoURL: me.photoURL || "",
+      };
+
       if (!mySnap.exists()) {
         await setDoc(myRef, {
-          email: me.email,
-          name: me.displayName || "",
+          ...baseProfile,
           likes: 0,
           dislikes: 0,
           createdAt: serverTimestamp()
         }, { merge: true });
       } else {
-        await setDoc(myRef, {
-          email: me.email,
-          name: me.displayName || ""
-        }, { merge: true });
+        await setDoc(myRef, baseProfile, { merge: true });
       }
 
       const usersQ = query(collection(db, "users"), orderBy("name", "asc"), limit(500));
       unsubUsers = onSnapshot(usersQ, (snap) => {
         usersCache = [];
         snap.forEach((d) => {
-          if (d.id === me.uid) return; // себя не показываем
+          if (d.id === me.uid) return;
           const u = d.data();
           usersCache.push({
             uid: d.id,
             name: (u.name || "").toString(),
             email: (u.email || "").toString(),
+            photoURL: (u.photoURL || "").toString(),
             likes: typeof u.likes === "number" ? u.likes : 0,
             dislikes: typeof u.dislikes === "number" ? u.dislikes : 0
           });
@@ -483,8 +505,6 @@
         btnSend.disabled = false;
       }
     };
-
-    console.log("DM app ready (user likes/dislikes).");
   </script>
 </body>
 </html>
