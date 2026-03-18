@@ -78,7 +78,6 @@
       </div>
       <div class="muted" id="usersStatus"></div>
       <div class="list" id="usersList"></div>
-      <div class="muted">👍/👎 ставятся на пользователя и видны всем (real-time).</div>
     </div>
 
     <!-- CHAT -->
@@ -131,7 +130,7 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app, "aleoy"); // твоя база
+    const db = getFirestore(app, "aleoy");
     const auth = getAuth(app);
 
     const el = (id) => document.getElementById(id);
@@ -234,14 +233,12 @@
         item.appendChild(left);
         item.appendChild(actions);
 
-        // открыть чат кликом по карточке (но не по кнопкам)
         item.addEventListener("click", (ev) => {
           const isBtn = ev.target.closest(".uLike, .uDislike");
           if (isBtn) return;
           openChatWithUser(u.uid, u.name, u.email);
         });
 
-        // лайк/дизлайк НЕ должен открывать чат
         likeBtn.addEventListener("click", async (ev) => {
           ev.stopPropagation();
           await reactToUser(u.uid, "likes");
