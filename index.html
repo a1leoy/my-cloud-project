@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DM (Google only) + Avatars + User Likes</title>
+  <title>DM (Email/Pass + Google) + Avatars + User Likes</title>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
@@ -14,13 +14,13 @@
     .topline { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
     .badge { font-size:12px; color:#6b7280; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:240px; max-width:100%; }
+    input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
     button { padding:10px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
     button.secondary { background:#e5e7eb; color:#111; }
     button:disabled { opacity:.6; cursor:not-allowed; }
-    input { padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; outline:none; width:260px; max-width:100%; }
-    input:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.15); }
-
     .muted { color:#6b7280; font-size:12px; min-height:16px; margin-top:8px; }
+    .section { border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-top:10px; }
 
     /* Users list */
     .list { display:grid; gap:8px; margin-top:10px; max-height:520px; overflow:auto; }
@@ -44,17 +44,14 @@
       background:#e5e7eb;
       flex: 0 0 auto;
     }
-    .avatarFallback{
+    /* для email/pass — серый кружок без картинки */
+    .avatarEmpty {
       width:38px; height:38px;
       border-radius:999px;
       background:#e5e7eb;
-      display:grid;
-      place-items:center;
-      font-weight:700;
-      color:#374151;
       flex: 0 0 auto;
-      user-select:none;
     }
+
     .textBlock { min-width:0; }
     .textBlock b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .textBlock small { display:block; color:#6b7280; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:360px; }
@@ -84,18 +81,34 @@
 <body>
   <div class="center">
 
-    <!-- AUTH (Google only) -->
+    <!-- AUTH -->
     <div class="card" id="authCard">
       <div class="topline">
-        <h2>Вход</h2>
+        <h2>Вход / Регистрация</h2>
         <div class="badge" id="conn">—</div>
       </div>
 
-      <div class="row">
-        <button id="btnGoogle">Войти через Google</button>
+      <div class="section">
+        <b>Email + Пароль</b>
+        <div class="row" style="margin-top:10px;">
+          <input id="name" placeholder="Имя (для регистрации)" />
+          <input id="email" placeholder="Email" />
+          <input id="password" type="password" placeholder="Пароль (мин. 6)" />
+          <button id="btnRegister">Регистрация</button>
+          <button id="btnLogin" class="secondary">Вход</button>
+        </div>
+        <div class="muted">При Email/Пароль аватарки нет (серый кружок).</div>
       </div>
+
+      <div class="section">
+        <b>Google</b>
+        <div class="row" style="margin-top:10px;">
+          <button id="btnGoogle">Войти через Google</button>
+        </div>
+        <div class="muted">При Google появится аватарка в списке.</div>
+      </div>
+
       <div class="muted" id="authStatus"></div>
-      <div class="muted">После входа откроется список пользователей. Лайки/дизлайки видны всем.</div>
     </div>
 
     <!-- USERS -->
@@ -113,6 +126,7 @@
       </div>
       <div class="muted" id="usersStatus"></div>
       <div class="list" id="usersList"></div>
+      <div class="muted">👍/👎 ставятся на пользователя и видны всем (real-time).</div>
     </div>
 
     <!-- CHAT -->
@@ -151,9 +165,11 @@
 
     import {
       getAuth, onAuthStateChanged, signOut,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile,
       GoogleAuthProvider, signInWithPopup
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
+    // === ТВОЙ CONFIG ===
     const firebaseConfig = {
       apiKey: "AIzaSyBU8S2jzUmbiPLHUe5d4GjW6ZhvfiX4BQ4",
       authDomain: "qwerty-889bc.firebaseapp.com",
@@ -165,7 +181,7 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app, "aleoy");
+    const db = getFirestore(app, "aleoy"); // твоя база
     const auth = getAuth(app);
 
     const el = (id) => document.getElementById(id);
@@ -180,6 +196,11 @@
     // Auth UI
     const conn = el("conn");
     const authStatus = el("authStatus");
+    const nameEl = el("name");
+    const emailEl = el("email");
+    const passEl = el("password");
+    const btnRegister = el("btnRegister");
+    const btnLogin = el("btnLogin");
     const btnGoogle = el("btnGoogle");
 
     // Users UI
@@ -223,6 +244,10 @@
       chatCard.style.display = "";
     }
 
+    function isGoogleUser(user) {
+      return (user?.providerData || []).some(p => p.providerId === "google.com");
+    }
+
     function renderUsers() {
       const q = userSearch.value.trim().toLowerCase();
       usersList.innerHTML = "";
@@ -241,19 +266,23 @@
         const left = document.createElement("div");
         left.className = "leftBlock";
 
+        // Аватар: только если есть photoURL (обычно Google)
         if (u.photoURL) {
           const img = document.createElement("img");
           img.className = "avatar";
           img.src = u.photoURL;
           img.alt = "avatar";
-
           img.onerror = () => {
             img.remove();
-            left.prepend(makeAvatarFallback(u.name));
+            const empty = document.createElement("div");
+            empty.className = "avatarEmpty";
+            left.prepend(empty);
           };
           left.appendChild(img);
         } else {
-          left.appendChild(makeAvatarFallback(u.name));
+          const empty = document.createElement("div");
+          empty.className = "avatarEmpty";
+          left.appendChild(empty);
         }
 
         const text = document.createElement("div");
@@ -292,14 +321,6 @@
       }
     }
 
-    function makeAvatarFallback(name) {
-      const d = document.createElement("div");
-      d.className = "avatarFallback";
-      const letter = (name && name.trim()) ? name.trim()[0].toUpperCase() : "?";
-      d.textContent = letter;
-      return d;
-    }
-
     async function reactToUser(uid, field) {
       try {
         await updateDoc(doc(db, "users", uid), { [field]: increment(1) });
@@ -311,7 +332,55 @@
 
     userSearch.addEventListener("input", renderUsers);
 
-    // === Google sign-in only ===
+    // === Email/Pass registration ===
+    btnRegister.onclick = async () => {
+      const name = nameEl.value.trim();
+      const email = emailEl.value.trim().toLowerCase();
+      const pass = passEl.value;
+
+      if (name.length < 2) return setText(authStatus, "Имя слишком короткое.");
+      if (!email.includes("@")) return setText(authStatus, "Проверь email.");
+      if (!pass || pass.length < 6) return setText(authStatus, "Пароль минимум 6 символов.");
+
+      setText(authStatus, "Регистрация...");
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await updateProfile(cred.user, { displayName: name });
+
+        // создаём профиль без photoURL (для email/pass)
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email,
+          name,
+          photoURL: "",
+          authProvider: "password",
+          likes: 0,
+          dislikes: 0,
+          createdAt: serverTimestamp()
+        }, { merge: true });
+
+        setText(authStatus, "Готово ✅");
+      } catch (e) {
+        console.error(e);
+        setText(authStatus, "Ошибка: " + (e.code || e.message));
+      }
+    };
+
+    // === Email/Pass login ===
+    btnLogin.onclick = async () => {
+      const email = emailEl.value.trim().toLowerCase();
+      const pass = passEl.value;
+
+      setText(authStatus, "Вход...");
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        setText(authStatus, "Вошли ✅");
+      } catch (e) {
+        console.error(e);
+        setText(authStatus, "Ошибка: " + (e.code || e.message));
+      }
+    };
+
+    // === Google sign-in ===
     btnGoogle.onclick = async () => {
       setText(authStatus, "Вход через Google...");
       try {
@@ -365,26 +434,38 @@
       setText(meBadge, `Вы: ${me.email || me.uid}`);
       showUsers();
 
+      // === гарантируем профиль users/{uid} для ЛЮБОГО способа входа ===
       const myRef = doc(db, "users", me.uid);
       const mySnap = await getDoc(myRef);
 
-      const baseProfile = {
+      const g = isGoogleUser(me);
+      const providerName = g ? "google" : "password";
+
+      // имя: при google обычно есть displayName; при password может быть пусто -> берём из базы
+      const existing = mySnap.exists() ? mySnap.data() : {};
+      const name = (me.displayName && me.displayName.trim()) ? me.displayName.trim()
+                 : (existing.name || (me.email ? me.email.split("@")[0] : "User"));
+
+      const profileBase = {
         email: me.email || "",
-        name: me.displayName || "Google User",
-        photoURL: me.photoURL || "",
+        name,
+        photoURL: g ? (me.photoURL || existing.photoURL || "") : "", // только Google
+        authProvider: providerName
       };
 
       if (!mySnap.exists()) {
         await setDoc(myRef, {
-          ...baseProfile,
+          ...profileBase,
           likes: 0,
           dislikes: 0,
           createdAt: serverTimestamp()
         }, { merge: true });
       } else {
-        await setDoc(myRef, baseProfile, { merge: true });
+        // Обновляем только базовые поля (не трогаем likes/dislikes)
+        await setDoc(myRef, profileBase, { merge: true });
       }
 
+      // === Список пользователей (real-time) ===
       const usersQ = query(collection(db, "users"), orderBy("name", "asc"), limit(500));
       unsubUsers = onSnapshot(usersQ, (snap) => {
         usersCache = [];
